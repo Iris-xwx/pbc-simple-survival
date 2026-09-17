@@ -13,17 +13,36 @@ permissions:
 jobs:
   build-deploy:
     runs-on: ubuntu-latest
+    env:
+      # Install Linux binaries from Posit Package Manager instead of compiling
+      # from source. V8 ships a prebuilt jammy binary here, so the build
+      # toolchain and libnode-dev are not strictly required.
+      RENV_CONFIG_REPOS_OVERRIDE: "https://packagemanager.posit.co/cran/__linux__/jammy/latest"
     steps:
       - uses: actions/checkout@v6
+
+      # System libraries that R packages compile or link against on Linux.
+      # libnode-dev provides the V8 headers/libs that gt -> juicyjuice -> V8
+      # needs; the V8 package links against the Node-bundled V8 on Ubuntu.
+      # libcurl/openssl/xml2/libpng cover curl, openssl, xml2 and ragg/png.
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libnode-dev \
+            libcurl4-openssl-dev \
+            libssl-dev \
+            libxml2-dev \
+            libpng-dev
 
       - uses: r-lib/actions/setup-r@v2
         with:
           use-public-rspm: true
           r-version: renv        # follow the R version pinned in renv.lock
 
-      # Restores the exact package versions from renv.lock into the system
-      # library. Uses renv::restore() rather than pak's dependency solver, so
-      # it cannot drift onto packages that no longer exist on CRAN.
+      # Restores the exact package versions from renv.lock. Uses renv::restore()
+      # rather than pak's dependency solver, so it cannot drift onto packages
+      # that no longer exist on CRAN.
       - uses: r-lib/actions/setup-renv@v2
         with:
           cache-version: 1

@@ -10,10 +10,8 @@ format:
     number-sections: true
     code-fold: true
     code-summary: "Show the code"
-    df-print: paged
     fig-cap-location: bottom
     embed-resources: true
-    self-contained: true
 
 execute:
   echo: true

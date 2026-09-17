@@ -1,19 +1,22 @@
-# R
+# R session state
 .Rproj.user/
 .Rhistory
 .RData
 .Ruserdata
 
-# Quarto
-/.quarto/
-*_cache/
-analysis/report_files/
-analysis/.quarto/
+# Environment variables (may hold API keys, DB credentials)
+.Renviron
 
+# Quarto
+.quarto/
+*_cache/
+*_files/
+
+# Analysis outputs (regenerated on every render)
 output/figures/*.png
 output/tables/*.csv
 
-renv/library/
+# renv's own library is ignored by renv/.gitignore, no need to repeat it here
 
 # OS
 .DS_Store

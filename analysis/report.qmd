@@ -1,0 +1,356 @@
+---
+title: "D-penicillamine in Primary Biliary Cholangitis"
+subtitle: "A survival and competing-risks re-analysis of the Mayo Clinic PBC trial"
+author: "Your Name"
+date: today
+date-format: "MMMM YYYY"
+abstract: |
+  The Mayo Clinic randomised trial of D-penicillamine in primary biliary
+  cholangitis (PBC) is one of the classic datasets in survival analysis. This
+  report re-analyses it end-to-end with an emphasis on two questions that a
+  single log-rank test cannot answer: does the treatment delay the first
+  unfavourable event, and once death and liver transplant are separated as
+  distinct outcomes, does the treatment change the cause-specific risk of
+  death? The report is fully reproducible from `data/pbc.csv`.
+format:
+  html:
+    embed-resources: true
+---
+
+```{r setup}
+#| include: false
+# Quarto knits from analysis/, so resolve the project root before sourcing
+# the modules that live in R/.
+.root <- local({
+  p <- normalizePath(".")
+  while (!file.exists(file.path(p, "_quarto.yml")) && dirname(p) != p) p <- dirname(p)
+  p
+})
+source(file.path(.root, "R", "setup.R"))
+source(file.path(.root, "R", "01_prepare_data.R"))
+source(file.path(.root, "R", "02_baseline_table.R"))
+source(file.path(.root, "R", "03_km_composite.R"))
+source(file.path(.root, "R", "04_competing_risks.R"))
+source(file.path(.root, "R", "05_cox_models.R"))
+```
+
+# Background and data
+
+Primary biliary cholangitis (PBC) is a chronic, progressive cholestatic liver
+disease. The Mayo Clinic trial randomised patients to D-penicillamine, an
+immunomodulator, or placebo, with the working hypothesis that slowing disease
+progression would delay death or the need for liver transplantation. The
+public dataset (`survival::pbc`) contains laboratory markers, clinical signs,
+and follow-up times for `r nrow(load_pbc())` patients.
+
+Of these, `r sum(is.na(load_pbc()$trt))` were not randomised (an observational
+follow-up group) and are excluded from every analysis below. The analysis
+cohort is therefore **`r nrow(prepare_cohort())` randomised patients**.
+
+The endpoint variable is worth pausing on. The raw `status` field has three
+levels:
+
+- `0` censored,
+- `1` transplant,
+- `2` death.
+
+Two analyses are possible from this one field, and they answer different
+questions. Collapsing transplant and death into a single "composite" event asks
+whether treatment delays *the first unfavourable event of any kind*. Keeping
+them apart asks whether treatment changes the *risk of death specifically*,
+treating transplant as a competing event that removes a patient from the risk
+set for death. Because a transplant is not obviously a bad outcome, the two
+analyses can disagree in direction, and that disagreement is itself the
+interesting finding. This report runs both.
+
+```{r baseline-data}
+cohort <- prepare_cohort()
+dim(cohort)
+```
+
+# Baseline characteristics
+
+Table 1 summarises the cohort by arm. Continuous variables that are roughly
+symmetric (age, albumin, cholesterol) are reported as mean (SD) and tested with
+t-tests; right-skewed laboratory markers (bilirubin, copper, alkaline
+phosphatase, AST, triglycerides, platelets, prothrombin time) are reported as
+median [IQR] and tested with Wilcoxon rank-sum tests. A Benjamini–Hochberg
+q-value is added alongside each p-value because a table of this size performs
+many simultaneous comparisons.
+
+```{r table1}
+#| label: tbl-baseline
+#| tbl-cap: "Baseline characteristics by treatment arm"
+make_baseline_table(cohort) |>
+  as_gt()
+```
+
+```{r table1-save}
+#| include: false
+save_table(make_baseline_table(cohort), "table1_baseline.csv")
+```
+
+The arms are balanced on almost every characteristic, but **age is nominally
+imbalanced before adjustment** — 51.4 years on D-penicillamine versus 48.6 on
+placebo, p = 0.018. After Benjamini–Hochberg adjustment across the 20 tests in
+the table the q-value is 0.28, so this is not evidence of a real baseline
+difference, and with 20 comparisons one p-value below 0.05 is roughly what
+chance alone produces. It is nonetheless the one imbalance worth naming, and
+because age is a strong prognostic factor for PBC it is retained in every
+adjusted model below. Randomisation did its job here; the adjustment is
+belt-and-braces.
+
+# Composite endpoint: transplant-free survival
+
+The first analysis treats transplant or death as a single event.
+
+```{r km-plot}
+#| label: fig-km
+#| fig-cap: "Kaplan-Meier estimates of transplant-free survival by treatment arm."
+make_km_plot(prepare_s1()) |>
+  print()
+save_figure(make_km_plot(prepare_s1()), "km_composite.png", width = 9, height = 6)
+```
+
+```{r logrank}
+logrank_fit <- run_logrank(prepare_s1())
+logrank_p   <- logrank_fit$pvalue
+logrank_fit
+```
+
+The two curves are nearly superimposed. The log-rank test gives p =
+`r format.pval(logrank_p, digits = 3)`, so there is no evidence that
+D-penicillamine delays the composite endpoint of transplant or death. Because
+the arms were balanced apart from the nominal age difference noted above, and
+because the models below will adjust for age anyway, this reads as a genuine
+null rather than a confounded one.
+
+# Competing risks: cumulative incidence of death
+
+The composite analysis above treats transplant and death as interchangeable.
+They are not. If D-penicillamine improved access to transplantation without
+changing the underlying death hazard, the composite analysis would credit it
+with a benefit it does not have — or conversely, a treatment that delays
+transplant but not death would look worse on the composite scale than it is.
+
+Treating death as the event of interest and transplant as a competing event
+gives the cause-specific picture.
+
+```{r cuminc-plot}
+#| label: fig-cuminc
+#| fig-cap: "Cumulative incidence of death, with transplant treated as a competing event."
+make_cuminc_plot(prepare_s2()) |>
+  print()
+save_figure(make_cuminc_plot(prepare_s2()), "cuminc_death.png", width = 9, height = 6)
+```
+
+```{r cuminc-table}
+#| label: tbl-cuminc
+#| tbl-cap: "5-year cumulative incidence of death and Gray's test"
+make_cuminc_table(prepare_s2()) |>
+  as_gt()
+```
+
+The curves again track closely, and Gray's test — the competing-risks analogue
+of the log-rank test, which must be used here rather than a standard log-rank —
+confirms no significant difference in the 5-year cumulative incidence of death.
+Separating the endpoints does not change the conclusion: D-penicillamine does
+not affect mortality in this trial.
+
+# Cox proportional hazards models
+
+We now move from group-level curves to covariate-adjusted hazard ratios.
+The unadjusted model first, then adjustment for the classical PBC prognostic
+factors: age, bilirubin, and prothrombin time. These follow the Mayo risk
+score for PBC and are the covariates a reviewer would expect to see.
+
+```{r cox-unadjusted}
+#| label: tbl-cox-unadj
+#| tbl-cap: "Unadjusted Cox model for transplant-free survival"
+format_cox_table(
+  fit_cox_unadjusted(prepare_s1()),
+  caption = "Unadjusted Cox regression (composite endpoint)"
+) |> as_gt()
+```
+
+```{r cox-linear}
+#| label: tbl-cox-linear
+#| tbl-cap: "Multivariable Cox model with linear covariates"
+format_cox_table(
+  fit_cox_multi_linear(prepare_s1()),
+  caption = "Multivariable Cox regression, linear covariates"
+) |> as_gt()
+```
+
+Treatment is not significant in either model, consistent with the log-rank
+result. Among the covariates, bilirubin and prothrombin time are the
+substantive prognostic markers, which matches the clinical literature.
+
+## Checking the proportional hazards assumption
+
+A Cox model reports one hazard ratio per covariate, which is only meaningful if
+that ratio is constant over follow-up. The Schoenfeld residual test checks this
+assumption; a significant p-value means the HR drifts over time and should not
+be reported as a single number.
+
+```{r ph-test-linear}
+ph_linear <- ph_test(fit_cox_multi_linear(prepare_s1()))
+ph_linear
+```
+
+```{r ph-plot-linear}
+#| label: fig-ph-linear
+#| fig-cap: "Schoenfeld residuals for the linear-covariate model. A non-horizontal trend indicates the hazard ratio changes over time."
+ph_plot(ph_linear, base_size = 11)
+```
+
+The test flags prothrombin time as violating the assumption. Because
+bilirubin and prothrombin time are strictly positive and act multiplicatively
+on the hazard, the standard remedy is to model them on the log scale.
+
+```{r ph-test-log}
+# Build the log-transformed variant inside the analysis so the transformation
+# is visible in the report rather than buried in a helper.
+s1_log <- prepare_s1() |>
+  mutate(log_bili = log(bili), log_protime = log(protime)) |>
+  add_protime_cat()
+
+cox_log <- coxph(
+  Surv(time, status) ~ trt + age + log(bili) + log(protime),
+  data = s1_log
+)
+ph_test(cox_log)
+```
+
+Log-transforming bilirubin resolves its violation, but prothrombin time still
+fails. When a covariate cannot be made to satisfy proportional hazards, the
+correct move is to **stratify** on it rather than force a single HR: the model
+then estimates the treatment effect *within* strata of prothrombin time and
+makes no assumption about its shape over time.
+
+The cost is that a stratified Cox model cannot
+estimate an HR for the stratification variable itself. Since prothrombin time
+is a strong prognostic marker but not our exposure of interest, this is an
+acceptable trade.
+
+```{r cox-stratified}
+#| label: tbl-cox-strat
+#| tbl-cap: "Multivariable Cox model stratified by prothrombin time"
+s1_strat <- add_protime_cat(prepare_s1())
+cox_strat <- fit_cox_multi_stratified(s1_strat)
+ph_strat  <- ph_test(cox_strat)
+
+format_cox_table(
+  cox_strat,
+  caption = "Multivariable Cox regression, stratified by prolonged prothrombin time"
+) |> as_gt()
+```
+
+```{r ph-strat-save}
+#| include: false
+save_table(format_cox_table(cox_strat), "cox_stratified.csv")
+```
+
+```{r ph-test-strat}
+ph_strat
+```
+
+```{r ph-plot-strat}
+#| label: fig-ph-strat
+#| fig-cap: "Schoenfeld residuals after stratification on prothrombin time. Skipping the slope test for the stratification factor is expected."
+ph_plot(ph_strat, base_size = 11)
+```
+
+The stratification clears the remaining violation, and the substantive
+conclusion is unchanged: the treatment HR stays close to 1 and non-significant,
+while age and log-bilirubin carry the prognostic signal.
+
+# Fine-Gray subdistribution model
+
+The final piece applies the same covariate structure to the competing-risks
+endpoint. A standard Cox model cannot be used here: once a patient receives a
+transplant they are no longer at risk of death in the usual sense, but treating
+transplant as ordinary censoring assumes transplant and death are independent,
+which is implausible. The Fine-Gray subdistribution hazard model keeps
+transplanted patients in the risk set with declining weight, giving
+subdistribution hazard ratios (sHR) that map directly onto the cumulative
+incidence curves from earlier.
+
+```{r fine-gray}
+#| label: tbl-finegray
+#| tbl-cap: "Fine-Gray subdistribution model for death, transplant as competing event"
+fg_fit <- fit_fine_gray(prepare_s2())
+format_cox_table(
+  fg_fit,
+  caption = "Fine-Gray subdistribution model, stratified by prothrombin time",
+  header  = "**sHR**"
+) |> as_gt()
+```
+
+```{r fine-gray-save}
+#| include: false
+save_table(
+  format_cox_table(fg_fit, header = "**sHR**"),
+  "fine_gray.csv"
+)
+```
+
+```{r fine-gray-ph}
+# crr() has no cox.zph method, so the equivalent weighted-Cox representation is
+# used purely to test the proportional subdistribution hazards assumption.
+fg_cox <- fit_fine_gray_cox(prepare_s2())
+ph_test(fg_cox)
+```
+
+```{r fine-gray-ph-plot}
+#| label: fig-ph-fg
+#| fig-cap: "Schoenfeld residuals for the Fine-Gray weighted-Cox representation."
+ph_plot(ph_test(fg_cox), base_size = 11)
+```
+
+```{r fine-gray-plot}
+#| label: fig-fg
+#| fig-cap: "Fine-Gray subdistribution model fit."
+#| include: false
+```
+
+The subdistribution model agrees with everything before it: no treatment
+effect on the risk of death, with age and bilirubin again doing the prognostic
+work. The point of including it is not to overturn the earlier result but to
+show that the null survives when the endpoint is handled the most defensible
+way available.
+
+# Discussion
+
+Three analyses of the same endpoint — a Kaplan-Meier composite, a cumulative
+incidence under competing risks, and a Fine-Gray subdistribution model — reach
+the same conclusion from different angles: in the Mayo PBC trial,
+D-penicillamine did not delay transplant-free survival, did not reduce the
+cause-specific risk of death, and did not do so after adjustment for the
+established prognostic factors. The treatment effect is null, and it is a null
+that holds up under the modelling choices a reviewer would challenge.
+
+The methodological thread is what makes the dataset worth returning to. The
+composite endpoint and the competing-risks endpoint are not the same question,
+and reporting only the first would hide the fact that transplant and death have
+different meanings. Likewise, a single unadjusted hazard ratio would have
+violated its own assumption, and the path from a linear model through a log
+transformation to stratification is the sequence a careful analyst actually
+walks — each step forced by a diagnostic rather than chosen in advance.
+
+## Limitations
+
+The trial is small and the follow-up is long, so the covariate-adjusted
+estimates carry wide confidence intervals. Prothrombin time is dichotomised at
+the upper limit of normal (11 s) to enable stratification; this cut point is
+clinically motivated but does not use the full information in the marker, and a
+continuous spline or time-varying coefficient would be a reasonable extension.
+Finally, this is a re-analysis of a public dataset for methodological
+illustration, not a new clinical claim.
+
+# Reproducibility
+
+```{r session-info}
+#| echo: false
+sessionInfo()
+```

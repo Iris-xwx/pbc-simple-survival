@@ -1,0 +1,20 @@
+# R
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+
+# Quarto
+/.quarto/
+*_cache/
+analysis/report_files/
+analysis/.quarto/
+
+output/figures/*.png
+output/tables/*.csv
+
+renv/library/
+
+# OS
+.DS_Store
+Thumbs.db

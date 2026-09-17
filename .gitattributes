@@ -1,0 +1,27 @@
+# Normalise line endings to LF inside the repository.
+#
+# Windows checkouts with core.autocrlf=true otherwise rewrite every text file
+# to CRLF on disk, which makes `git status` report the whole project as
+# modified even when nothing has actually changed.
+* text=auto eol=lf
+
+# Binary assets are stored verbatim, never converted.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.pdf   binary
+*.docx  binary
+*.xlsx  binary
+*.rds   binary
+*.RData binary
+*.woff  binary
+*.woff2 binary
+
+# Windows-only scripts keep CRLF, which their interpreters expect.
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# GitHub language statistics.
+renv.lock linguist-language=JSON

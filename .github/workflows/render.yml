@@ -48,6 +48,31 @@ jobs:
           cache-version: 1
 
       - uses: quarto-dev/quarto-actions/setup@v2
+        with:
+          # Pin the Quarto version so the report is built by the same toolchain
+          # on every run instead of silently following the latest release.
+          # Check your local version with `quarto --version` and keep it close.
+          version: "1.10.18"
+
+      # `quarto publish gh-pages` cannot create the gh-pages branch itself when
+      # it runs headless in CI; it fails with
+      #   Unable to publish to GitHub Pages (the remote origin does not have a
+      #   branch named "gh-pages")
+      # Create an empty orphan branch on the remote, once. The push sends a
+      # single commit object, so neither the working tree nor the checked-out
+      # main branch is touched.
+      - name: Initialise gh-pages branch if missing
+        run: |
+          if git ls-remote --exit-code --heads origin gh-pages > /dev/null 2>&1; then
+            echo "gh-pages already exists; nothing to do."
+          else
+            echo "gh-pages not found; creating an empty orphan branch."
+            empty_tree=$(git hash-object -t tree /dev/null)
+            init_commit=$(git -c user.name="github-actions[bot]" \
+                               -c user.email="github-actions[bot]@users.noreply.github.com" \
+                               commit-tree "$empty_tree" -m "Initialise gh-pages branch")
+            git push origin "${init_commit}:refs/heads/gh-pages"
+          fi
 
       # publish renders the project first, then pushes _site/ to gh-pages.
       # A separate render step is unnecessary and only risks output mismatch.

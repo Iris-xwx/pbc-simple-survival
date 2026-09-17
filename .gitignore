@@ -16,6 +16,9 @@
 output/figures/*.png
 output/tables/*.csv
 
+# Rendered report (rebuilt by CI; the published copy is served from gh-pages)
+analysis/report.html
+
 # renv's own library is ignored by renv/.gitignore, no need to repeat it here
 
 # OS

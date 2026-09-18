@@ -11,7 +11,11 @@
 # freeze data. The frozen computations CI actually reads live in the
 # project-root `_freeze/` directory (see "Publishing" in README) — that one is
 # committed. This `.quarto/` directory is local-only, so ignore it wholesale.
-.quarto/
+#
+# Written as `/.quarto/` (leading slash, trailing slash) deliberately: Quarto's
+# own ensureGitignore() appends exactly this entry on every render, so matching
+# its form exactly keeps it from re-adding the line and dirtying .gitignore.
+/.quarto/
 
 # knitr / Quarto caches
 *_cache/

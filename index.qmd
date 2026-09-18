@@ -19,8 +19,9 @@ format:
 
 ```{r setup}
 #| include: false
-# Quarto knits from analysis/, so resolve the project root before sourcing
-# the modules that live in R/.
+# index.qmd lives at the project root, so the working directory is already the
+# root; walk up defensively anyway so the chunk still works if the file is
+# rendered from a subdirectory.
 .root <- local({
   p <- normalizePath(".")
   while (!file.exists(file.path(p, "_quarto.yml")) && dirname(p) != p) p <- dirname(p)

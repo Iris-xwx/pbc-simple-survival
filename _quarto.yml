@@ -1,6 +1,17 @@
 project:
+  type: website
+  # index.qmd is the single input. The site renders into the default _site/
+  # output directory (git-ignored); `quarto publish gh-pages` uploads its
+  # contents, index.html included, to the gh-pages branch.
+  render:
+    - index.qmd
+
+website:
   title: "D-penicillamine in Primary Biliary Cholangitis"
-  type: default
+  # index.qmd deliberately has no sidebar/navbar: it is a self-contained
+  # analysis report and reads better as one continuous page than as a
+  # documentation site. The rendered page still gets the website's page
+  # chrome and resource handling.
 
 format:
   html:
@@ -22,4 +33,10 @@ execute:
   # not changed, so the GitHub Action never needs R installed. See README
   # "Publishing". Quarto also mirrors them into .quarto/_freeze/, which is
   # local scratch and git-ignored.
+  #
+  # freeze only takes effect for a PROJECT render. This is why the project is
+  # type: website with a single input doc: a `type: default` project with one
+  # .qmd is treated by `quarto publish` as a single document (publishDocument),
+  # whose single-file render path skips the freezer entirely and tries to run
+  # R -- which is not installed on CI. A website always renders as a project.
   freeze: auto

@@ -36,7 +36,8 @@ competing-risks analysis where transplant competes with death.
 
 ```
 pbc-simple-survival/
-├── _quarto.yml                  # render configuration
+├── _quarto.yml                  # render configuration (website project)
+├── index.qmd                    # the report itself (site home page)
 ├── data/
 │   └── pbc.csv                  # raw data (survival::pbc)
 ├── R/
@@ -46,8 +47,6 @@ pbc-simple-survival/
 │   ├── 03_km_composite.R        # Kaplan-Meier, composite endpoint
 │   ├── 04_competing_risks.R     # cumulative incidence, Gray's test
 │   └── 05_cox_models.R          # Cox models, PH diagnostics, Fine-Gray
-├── analysis/
-│   └── report.qmd               # the report itself
 ├── output/
 │   ├── figures/                 # rendered plots (png)
 │   └── tables/                  # rendered tables (csv)
@@ -59,7 +58,7 @@ pbc-simple-survival/
 ```
 
 The analysis logic lives in `R/` as small functions, one file per topic.
-`analysis/report.qmd` only calls those functions and explains the results, so
+`index.qmd` only calls those functions and explains the results, so
 the same code can be re-run interactively or rendered as the report without
 duplication.
 
@@ -122,7 +121,7 @@ git push                   # CI renders + publishes
 ```
 
 `_quarto.yml` sets `execute: freeze: auto`, so `quarto render` re-runs the R
-code only when `report.qmd` changed. If you edit a file under `R/` (the
+code only when `index.qmd` changed. If you edit a file under `R/` (the
 analysis functions the report calls), Quarto cannot see that dependency — force
 a full re-execution so the frozen results pick up your change:
 
@@ -130,11 +129,23 @@ a full re-execution so the frozen results pick up your change:
 rm -rf _freeze && quarto render
 ```
 
-One wrinkle worth knowing: Quarto writes the frozen results in **two** places —
-the visible `_freeze/` at the project root, and a hidden copy under
+Two details of the freeze mechanism are worth knowing, because both have bitten
+this project before.
+
+**Where it is stored.** Quarto writes the frozen results in two places — the
+visible `_freeze/` at the project root, and a hidden copy under
 `.quarto/_freeze/`. Only the root `_freeze/` is read back when the project is
 rendered on CI, and only it is committed; `.quarto/` is local scratch and is
 git-ignored.
+
+**Why the project is a website.** `freeze` only applies to a *project* render.
+Quarto's `type: default` project with exactly one input file is treated by
+`quarto publish` as a single *document*, and the single-file render path skips
+the freezer entirely — on a runner with no R installed, it then fails trying to
+spawn `Rscript`. Declaring `project: type: website` guarantees every render
+(including the one `quarto publish` performs) goes through the project render
+path, so the freeze is always consulted. The site is a single page with no
+navbar or sidebar; `index.qmd` is both the site home and the whole report.
 
 ## Methods
 

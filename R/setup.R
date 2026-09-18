@@ -16,7 +16,9 @@ suppressPackageStartupMessages({
 
 # ---- project paths ---------------------------------------------------------
 # Walk up from the working directory until we find the Quarto project file.
-# This lets the report render from either the project root or analysis/.
+# This lets the analysis run whether it is sourced from the project root or
+# from a subdirectory, and keeps every data/figure/table path anchored at the
+# project root regardless of the caller's working directory.
 proj_root <- function(start = ".") {
   p <- normalizePath(start)
   while (!file.exists(file.path(p, "_quarto.yml")) && dirname(p) != p) {

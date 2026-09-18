@@ -10,8 +10,8 @@
 # ---------------------------------------------------------------------------
 
 # Resolve the project root by walking up until we find _quarto.yml, so the
-# module works whether it is sourced from the project root, from analysis/,
-# or knitted by Quarto.
+# module works whether it is sourced from the project root, from a
+# subdirectory, or knitted by Quarto.
 .local_root <- local({
   p <- normalizePath(".")
   while (!file.exists(file.path(p, "_quarto.yml")) && dirname(p) != p) p <- dirname(p)

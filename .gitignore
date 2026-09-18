@@ -17,19 +17,18 @@
 *_cache/
 *_files/
 
-# Quarto build output (produced by `quarto publish`; served from gh-pages)
+# Analysis outputs (regenerated on every render)
+output/figures/*.png
+output/tables/*.csv
+
+# Rendered site: rebuilt by CI, served from the gh-pages branch.
+# A website project renders into _site/ by default (libDir site_libs/ lives
+# inside it), so this one rule covers the whole build output.
 _site/
 
 # NOTE: the project-root `_freeze/` directory is deliberately NOT ignored.
 # It holds the frozen R results that CI thaws from to render without R, so it
 # must be committed. Do not add a `_freeze/` rule here.
-
-# Analysis outputs (regenerated on every render)
-output/figures/*.png
-output/tables/*.csv
-
-# Rendered report (rebuilt by CI; the published copy is served from gh-pages)
-analysis/report.html
 
 # OS
 .DS_Store

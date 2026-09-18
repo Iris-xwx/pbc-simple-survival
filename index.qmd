@@ -1,7 +1,9 @@
 ---
 title: "D-penicillamine in Primary Biliary Cholangitis"
 subtitle: "A survival and competing-risks re-analysis of the Mayo Clinic PBC trial"
-author: "Your Name"
+author:
+  - name: "Xuchi Cheng"
+    email: "xccheng5203@gmail.com"
 date: today
 date-format: "MMMM YYYY"
 abstract: |

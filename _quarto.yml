@@ -17,3 +17,9 @@ execute:
   echo: true
   warning: false
   message: false
+  # Compute locally, render on CI. The R results are frozen under the
+  # project-root _freeze/ directory (committed) and reused when the source has
+  # not changed, so the GitHub Action never needs R installed. See README
+  # "Publishing". Quarto also mirrors them into .quarto/_freeze/, which is
+  # local scratch and git-ignored.
+  freeze: auto

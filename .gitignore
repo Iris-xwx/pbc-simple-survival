@@ -7,10 +7,22 @@
 # Environment variables (may hold API keys, DB credentials)
 .Renviron
 
-# Quarto
+# Quarto scratch: index, caches, session state, and the hidden duplicate of the
+# freeze data. The frozen computations CI actually reads live in the
+# project-root `_freeze/` directory (see "Publishing" in README) — that one is
+# committed. This `.quarto/` directory is local-only, so ignore it wholesale.
 .quarto/
+
+# knitr / Quarto caches
 *_cache/
 *_files/
+
+# Quarto build output (produced by `quarto publish`; served from gh-pages)
+_site/
+
+# NOTE: the project-root `_freeze/` directory is deliberately NOT ignored.
+# It holds the frozen R results that CI thaws from to render without R, so it
+# must be committed. Do not add a `_freeze/` rule here.
 
 # Analysis outputs (regenerated on every render)
 output/figures/*.png
@@ -19,8 +31,9 @@ output/tables/*.csv
 # Rendered report (rebuilt by CI; the published copy is served from gh-pages)
 analysis/report.html
 
-# renv's own library is ignored by renv/.gitignore, no need to repeat it here
-
 # OS
 .DS_Store
 Thumbs.db
+
+# Quarto junk that may be dropped next to a document
+**/*.quarto_ipynb

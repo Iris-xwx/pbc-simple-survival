@@ -5,62 +5,48 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Publishing commits the rendered site to the gh-pages branch.
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 jobs:
   build-deploy:
     runs-on: ubuntu-latest
-    env:
-      # Install Linux binaries from Posit Package Manager instead of compiling
-      # from source. V8 ships a prebuilt jammy binary here, so the build
-      # toolchain and libnode-dev are not strictly required.
-      RENV_CONFIG_REPOS_OVERRIDE: "https://packagemanager.posit.co/cran/__linux__/jammy/latest"
     steps:
       - uses: actions/checkout@v6
 
-      # System libraries that R packages compile or link against on Linux.
-      # libnode-dev provides the V8 headers/libs that gt -> juicyjuice -> V8
-      # needs; the V8 package links against the Node-bundled V8 on Ubuntu.
-      # libcurl/openssl/xml2/libpng cover curl, openssl, xml2 and ragg/png.
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libnode-dev \
-            libcurl4-openssl-dev \
-            libssl-dev \
-            libxml2-dev \
-            libpng-dev
-
-      - uses: r-lib/actions/setup-r@v2
-        with:
-          use-public-rspm: true
-          r-version: renv        # follow the R version pinned in renv.lock
-
-      # Restores the exact package versions from renv.lock. Uses renv::restore()
-      # rather than pak's dependency solver, so it cannot drift onto packages
-      # that no longer exist on CRAN.
-      - uses: r-lib/actions/setup-renv@v2
-        with:
-          cache-version: 1
-
+      # No R is installed. The R analysis is executed on the developer's
+      # machine and its results are committed under _freeze/, so CI only
+      # performs the markdown -> HTML step. This removes the entire class
+      # of "install 79 R packages from scratch on a clean runner" failures.
+      #
+      # Note the directory name: with `freeze: auto`, Quarto WRITES two
+      # copies (the hidden .quarto/_freeze/ scratch dir and this visible
+      # _freeze/) but only READS the visible project-root _freeze/ when it
+      # renders on CI. Committing only .quarto/_freeze/ would leave CI with
+      # nothing to thaw from, so the check below deliberately guards _freeze/.
       - uses: quarto-dev/quarto-actions/setup@v2
         with:
-          # Pin the Quarto version so the report is built by the same toolchain
-          # on every run instead of silently following the latest release.
-          # Check your local version with `quarto --version` and keep it close.
+          # Keep this equal to your local `quarto --version` so the frozen
+          # output and the rendering toolchain match.
           version: "1.10.18"
 
+      # Fail with a readable message rather than a cryptic Quarto error if the
+      # freeze data was never committed (i.e. `quarto render` was not run
+      # locally before pushing).
+      - name: Check that frozen computations are present
+        run: |
+          if [ ! -d "_freeze" ]; then
+            echo "::error::_freeze/ is missing. Run 'quarto render' locally and commit _freeze/ before pushing."
+            exit 1
+          fi
+          echo "Freeze data found:"
+          find _freeze -type f | head -20
+
       # `quarto publish gh-pages` cannot create the gh-pages branch itself when
-      # it runs headless in CI; it fails with
-      #   Unable to publish to GitHub Pages (the remote origin does not have a
-      #   branch named "gh-pages")
-      # Create an empty orphan branch on the remote, once. The push sends a
-      # single commit object, so neither the working tree nor the checked-out
-      # main branch is touched.
+      # it runs headless in CI. Create an empty orphan branch on the remote,
+      # once; the push sends a single commit object, so the working tree and
+      # the checked-out main branch are untouched. Idempotent.
       - name: Initialise gh-pages branch if missing
         run: |
           if git ls-remote --exit-code --heads origin gh-pages > /dev/null 2>&1; then
@@ -74,9 +60,9 @@ jobs:
             git push origin "${init_commit}:refs/heads/gh-pages"
           fi
 
-      # publish renders the project first, then pushes _site/ to gh-pages.
-      # A separate render step is unnecessary and only risks output mismatch.
-      - name: Publish to GitHub Pages (and render)
+      # Renders the project (reusing the frozen computations) and pushes the
+      # result to gh-pages.
+      - name: Publish to GitHub Pages
         uses: quarto-dev/quarto-actions/publish@v2
         with:
           target: gh-pages

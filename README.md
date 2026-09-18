@@ -14,8 +14,10 @@ renders from raw data with one command.
 
 ## Report
 
-The rendered report is [`docs/report.html`](docs/report.html). It walks through
-every step with the reasoning behind each modelling choice, not just the output.
+The rendered report is published to GitHub Pages by the workflow in
+`.github/workflows/render.yml` at
+<https://iris-xwx.github.io/pbc-simple-survival/>. It walks through every step
+with the reasoning behind each modelling choice, not just the output.
 
 ## Data
 
@@ -33,7 +35,7 @@ competing-risks analysis where transplant competes with death.
 ## Structure
 
 ```
-pbc-survival-rwe/
+pbc-simple-survival/
 ├── _quarto.yml                  # render configuration
 ├── data/
 │   └── pbc.csv                  # raw data (survival::pbc)
@@ -49,9 +51,11 @@ pbc-survival-rwe/
 ├── output/
 │   ├── figures/                 # rendered plots (png)
 │   └── tables/                  # rendered tables (csv)
-├── docs/
-│   └── report.html              # rendered report (GitHub Pages)
-└── legacy_pbc_analysis.R        # original single-file script, kept for reference
+├── _freeze/                     # frozen computations, committed (see Publishing)
+├── .github/
+│   └── workflows/
+│       └── render.yml           # CI: render on push and publish to gh-pages
+└── run_all.R                    # headless runner for all analyses
 ```
 
 The analysis logic lives in `R/` as small functions, one file per topic.
@@ -99,6 +103,38 @@ make_baseline_table()
 ```
 
 Figures and tables are written to `output/` on each render.
+
+## Publishing
+
+The report is published to GitHub Pages by GitHub Actions. R is executed
+**locally**, not on CI: the workflow installs only Quarto and renders from the
+computations frozen under `_freeze/`. This keeps the CI run to a few seconds
+and avoids rebuilding the R package stack on a clean runner.
+
+The practical consequence is that **a push only publishes if the frozen
+computations are up to date**. The update cycle is therefore:
+
+```bash
+quarto render              # executes R, refreshes _freeze/
+git add _freeze            # commit the refreshed computations
+git commit -m "Update report"
+git push                   # CI renders + publishes
+```
+
+`_quarto.yml` sets `execute: freeze: auto`, so `quarto render` re-runs the R
+code only when `report.qmd` changed. If you edit a file under `R/` (the
+analysis functions the report calls), Quarto cannot see that dependency — force
+a full re-execution so the frozen results pick up your change:
+
+```bash
+rm -rf _freeze && quarto render
+```
+
+One wrinkle worth knowing: Quarto writes the frozen results in **two** places —
+the visible `_freeze/` at the project root, and a hidden copy under
+`.quarto/_freeze/`. Only the root `_freeze/` is read back when the project is
+rendered on CI, and only it is committed; `.quarto/` is local scratch and is
+git-ignored.
 
 ## Methods
 
